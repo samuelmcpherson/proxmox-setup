@@ -16,9 +16,13 @@ CONFIGFILE1=$WORKDIR/$REPO/configfiles/iscsid.conf
 
 CONFIGDESTINATION1=/etc/iscsi/iscsid.conf
 
+CONFIGMODIFICATIONS2="sed -i -e \"s/\$VAR1/$CONFIGFILE1VAR1/\" -e \"s/\$VAR2/$CONFIGFILE1VAR2/\""
+
 CONFIGFILE2=$WORKDIR/$REPO/configfiles/multipath.conf
 
 CONFIGDESTINATION2=/etc/multipath.conf
+
+CONFIGMODIFICATIONS2="sed -i -e \"s/\$VAR1/$CONFIGFILE2VAR1/\" -e \"s/\$VAR2/$CONFIGFILE2VAR2/\""
 
 CONFIGFILE3=
 
@@ -115,6 +119,14 @@ cp $WORKDIR/$REPO/files/ansible/authorized_keys /home/ansible/.ssh
 chown -R ansible:ansible /home/ansible
 
 echo 'ansible ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/030_ansible-nopasswd
+
+cp "$CONFIGFILE1" "$CONFIGDESTINATION1"
+
+"$CONFIGMODIFICATIONS1"
+
+cp "$CONFIGFILE2" "$CONFIGDESTINATION2"
+
+"$CONFIGMODIFICATIONS2"
 
 if [ -n "$PASSTHROUGH" ]
 then 
