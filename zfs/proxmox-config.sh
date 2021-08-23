@@ -1,52 +1,29 @@
 #!/bin/bash
 
-MOUNTPOINT=/mnt/man-mnt
+CONFIGREPO="https://github.com/samuelmcpherson/config-files.git"
 
-WORKDIR=/root
+CONFIGDIR="/home/$USER/$(echo $CONFIGREPO | cut -d '/' -f5 | sed -r 's/.{4}$//')"
 
-REPO=proxmox-setup
+USER=oslander
 
-USER=ccadmin
+COMMUNITYREPO=yes
 
-COMMUNITYREPO=
+ANSIBLE=yes
 
 PASSTHROUGH=yes
 
-CONFIGFILE1=$WORKDIR/$REPO/configfiles/iscsid.conf
-
-CONFIGDESTINATION1=/etc/iscsi/iscsid.conf
-
-CONFIGMODIFICATIONS2="sed -i -e \"s/\$VAR1/$CONFIGFILE1VAR1/\" -e \"s/\$VAR2/$CONFIGFILE1VAR2/\""
-
-CONFIGFILE2=$WORKDIR/$REPO/configfiles/multipath.conf
-
-CONFIGDESTINATION2=/etc/multipath.conf
-
-CONFIGMODIFICATIONS2="sed -i -e \"s/\$VAR1/$CONFIGFILE2VAR1/\" -e \"s/\$VAR2/$CONFIGFILE2VAR2/\""
-
-CONFIGFILE3=
-
-CONFIGDESTINATION3=
-# set networking to dhcp in /etc/network/interfaces
-
-cp -r $MOUNTPOINT/$REPO $WORKDIR
-
-cp -r $MOUNTPOINT/.ssh $WORKDIR
-
-cp -r $MOUNTPOINT/.gitconfig $WORKDIR
-
-if [ -n "$COMMUNITYREPO" ]
+if [[ -n "$COMMUNITYREPO" ]]
 then 
-
-    cp $WORKDIR/$REPO/configfiles/proxmox/pve-community.list /etc/apt/sources.list.d
+    echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-community.list
 
     rm /etc/apt/sources.list.d/pve-enterprise.list
-
 fi
 
 apt update && apt -y upgrade
 
-apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop glances ripgrep nmap iftop vim neovim tcpdump smartmontools open-iscsi lsscsi multipath-tools
+apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop glances ripgrep nmap iftop vim neovim tcpdump smartmontools
+
+apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
 
 rm -r /var/lib/vz/dump
 
@@ -54,15 +31,7 @@ rm -r /var/lib/vz/images
 
 rm -r /var/lib/vz/template
 
-apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
-
-zfs create -o canmount=off rpool/data/users
-
-zfs create -o mountpoint=/home/$USER rpool/data/users/$USER
-
-zfs create -o mountpoint=/home/ansible rpool/data/users/ansible
-
-zfs create -o canmount=off -o xattr=sa -o compression=lz4 -o recordsize=8k rpool/data/VM_image_data
+zfs create -o canmount=off -o xattr=sa -o compression=lz4 -o recordsize=16k rpool/data/VM_image_data
 
 zfs create -o mountpoint=/var/lib/vz/dump rpool/data/VM_image_data/dump
 
@@ -70,63 +39,52 @@ zfs create -o mountpoint=/var/lib/vz/images rpool/data/VM_image_data/images
 
 zfs create -o mountpoint=/var/lib/vz/template rpool/data/VM_image_data/template
 
-cd $WORKDIR && git clone https://github.com/jimsalterjrs/sanoid.git
+zfs create -o canmount=off rpool/data/users
 
-cd $WORKDIR/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
-
-apt install -y $WORKDIR/sanoid_*_all.deb
-
-cp $WORKDIR/$REPO/configfiles/sanoid.conf /etc/sanoid
-
-cp $WORKDIR/$REPO/configfiles/ssh_config /etc/ssh
-
-cp $WORKDIR/$REPO/configfiles/sshd_config /etc/ssh
+zfs create -o mountpoint=/home/$USER rpool/data/users/$USER
 
 useradd -M -g users -G sudo,adm,plugdev -s /usr/bin/zsh -d /home/$USER $USER
 
-cp $WORKDIR/$REPO/files/dotfiles/.zshrc /home/$USER
+cd /home/$USER && git clone $CONFIGREPO
 
-cp $WORKDIR/$REPO/files/dotfiles/.zshrc.local /home/$USER
+cp $CONFIGDIR/home/.zshrc /home/$USER/.zshrc
 
-cp $WORKDIR/$REPO/files/dotfiles/grml-zsh-refcard.pdf /home/$USER
+cp $CONFIGREPO/home/.zshrc.local /home/$USER/.zshrc.local
 
-cp -a /etc/skel/. /home/$USER
+cp $CONFIGREPO/home/grml-zsh-refcard.pdf /home/$USER/grml-zsh-refcard.pdf
 
-usermod -s /usr/bin/zsh root
+if [[ -n "$ANSIBLE" ]]
+then
+    zfs create -o mountpoint=/home/ansible rpool/data/users/ansible
+    
+    useradd -M -s /bin/bash -d /home/ansible ansible
 
-cp $WORKDIR/$REPO/files/dotfiles/.zshrc $WORKDIR
+    mkdir -p /home/ansible/.ssh
 
-cp $WORKDIR/$REPO/files/dotfiles/.zshrc.local $WORKDIR
+    cp $CONFIGREPO/ansible/authorized_keys /home/ansible/.ssh/authorized_keys
 
-cp $WORKDIR/$REPO/files/dotfiles/grml-zsh-refcard.pdf $WORKDIR
+    chown -R ansible:ansible /home/ansible
 
-cp -r $WORKDIR/$REPO/ /home/$USER
+    echo 'ansible ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/030_ansible-nopasswd
 
-cp -r $WORKDIR/$REPO/ /home/$USER
+fi
 
-cp -r $WORKDIR/.ssh /home/$USER
+cd /home/$USER && git clone https://github.com/jimsalterjrs/sanoid.git
 
-cp $WORKDIR/.gitconfig /home/$USER
+cd /home/$USER/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
+
+apt install -y /home/$USER/sanoid_*_all.deb
+
+cp $CONFIGDIR/etc/sanoid/proxmox/sanoid.conf /etc/sanoid/sanoid.conf
+
+cp $CONFIGDIR/etc/ssh/ssh_config /etc/ssh/ssh_config
+
+cp $CONFIGDIR/etc/ssh/sshd_config /etc/ssh/sshd_config
+
+cp $CONFIGREPO/home/.gitconfig /home/$USER/.gitconfig
 
 chown -R $USER:users /home/$USER
 
-useradd -M -s /bin/bash -d /home/ansible ansible
-
-mkdir -p /home/ansible/.ssh
-
-cp $WORKDIR/$REPO/files/ansible/authorized_keys /home/ansible/.ssh
-
-chown -R ansible:ansible /home/ansible
-
-echo 'ansible ALL=(ALL) NOPASSWD: ALL' >> /etc/sudoers.d/030_ansible-nopasswd
-
-cp "$CONFIGFILE1" "$CONFIGDESTINATION1"
-
-"$CONFIGMODIFICATIONS1"
-
-cp "$CONFIGFILE2" "$CONFIGDESTINATION2"
-
-"$CONFIGMODIFICATIONS2"
 
 if [ -n "$PASSTHROUGH" ]
 then 
