@@ -1,10 +1,12 @@
 #!/bin/bash
 
+USER=oslander
+
+ZFS=yes
+
 CONFIGREPO="https://github.com/samuelmcpherson/config-files.git"
 
 CONFIGDIR="/home/$USER/$(echo $CONFIGREPO | cut -d '/' -f5 | sed -r 's/.{4}$//')"
-
-USER=oslander
 
 COMMUNITYREPO=yes
 
@@ -21,47 +23,64 @@ fi
 
 apt update && apt -y upgrade
 
-apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop glances ripgrep nmap iftop vim neovim tcpdump smartmontools
+apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
 
-apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
+if [[ -n "$ZFS" ]]
+then
+    apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
 
-rm -r /var/lib/vz/dump
+    rm -r /var/lib/vz/dump
+    rm -r /var/lib/vz/images
+    rm -r /var/lib/vz/template
 
-rm -r /var/lib/vz/images
+    zfs create -o canmount=off -o xattr=sa -o compression=lz4 -o recordsize=16k rpool/data/VM_image_data
+    zfs create -o mountpoint=/var/lib/vz/dump rpool/data/VM_image_data/dump
+    zfs create -o mountpoint=/var/lib/vz/images rpool/data/VM_image_data/images
+    zfs create -o mountpoint=/var/lib/vz/template rpool/data/VM_image_data/template
+    zfs create -o canmount=off rpool/data/users
+    
+    cd /root && git clone https://github.com/jimsalterjrs/sanoid.git
 
-rm -r /var/lib/vz/template
+    cd /root/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
 
-zfs create -o canmount=off -o xattr=sa -o compression=lz4 -o recordsize=16k rpool/data/VM_image_data
+    apt install -y /root/sanoid/sanoid_*_all.deb
 
-zfs create -o mountpoint=/var/lib/vz/dump rpool/data/VM_image_data/dump
+    zfs create -o mountpoint=/home/$USER rpool/data/users/$USER
+    
+    useradd -M -g users -G sudo,adm,plugdev -s /usr/bin/zsh -d /home/$USER $USER
 
-zfs create -o mountpoint=/var/lib/vz/images rpool/data/VM_image_data/images
+    if [[ -n "$ANSIBLE" ]]
+    then
+        zfs create -o mountpoint=/home/ansible rpool/data/users/ansible
+    
+        useradd -M -s /bin/bash -d /home/ansible ansible
+    fi
 
-zfs create -o mountpoint=/var/lib/vz/template rpool/data/VM_image_data/template
+elif [[ -z "$ZFS" ]]
+then
+    useradd -m -g users -G sudo,adm,plugdev -s /usr/bin/zsh $USER
 
-zfs create -o canmount=off rpool/data/users
+    if [[ -n "$ANSIBLE" ]]
+    then
+        useradd -m -s /bin/bash ansible
+    fi
+fi
 
-zfs create -o mountpoint=/home/$USER rpool/data/users/$USER
-
-useradd -M -g users -G sudo,adm,plugdev -s /usr/bin/zsh -d /home/$USER $USER
+mkdir -p /home/$USER/.ssh
 
 cd /home/$USER && git clone $CONFIGREPO
 
 cp $CONFIGDIR/home/.zshrc /home/$USER/.zshrc
 
-cp $CONFIGREPO/home/.zshrc.local /home/$USER/.zshrc.local
+cp $CONFIGDIR/home/.zshrc.local /home/$USER/.zshrc.local
 
-cp $CONFIGREPO/home/grml-zsh-refcard.pdf /home/$USER/grml-zsh-refcard.pdf
+cp $CONFIGDIR/home/grml-zsh-refcard.pdf /home/$USER/grml-zsh-refcard.pdf
 
 if [[ -n "$ANSIBLE" ]]
 then
-    zfs create -o mountpoint=/home/ansible rpool/data/users/ansible
-    
-    useradd -M -s /bin/bash -d /home/ansible ansible
-
     mkdir -p /home/ansible/.ssh
 
-    cp $CONFIGREPO/ansible/authorized_keys /home/ansible/.ssh/authorized_keys
+    cp $CONFIGDIR/home/ansible/authorized_keys /home/ansible/.ssh/authorized_keys
 
     chown -R ansible:ansible /home/ansible
 
@@ -69,19 +88,16 @@ then
 
 fi
 
-cd /home/$USER && git clone https://github.com/jimsalterjrs/sanoid.git
-
-cd /home/$USER/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
-
-apt install -y /home/$USER/sanoid_*_all.deb
-
-cp $CONFIGDIR/etc/sanoid/proxmox/sanoid.conf /etc/sanoid/sanoid.conf
-
 cp $CONFIGDIR/etc/ssh/ssh_config /etc/ssh/ssh_config
 
 cp $CONFIGDIR/etc/ssh/sshd_config /etc/ssh/sshd_config
 
-cp $CONFIGREPO/home/.gitconfig /home/$USER/.gitconfig
+if [[ -n "$ZFS" ]]
+then
+    cp $CONFIGDIR/etc/sanoid/proxmox/sanoid.conf /etc/sanoid/sanoid.conf
+fi
+
+cp $CONFIGDIR/home/.gitconfig /home/$USER/.gitconfig
 
 chown -R $USER:users /home/$USER
 
