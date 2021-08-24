@@ -1,5 +1,7 @@
 #!/bin/bash
 
+USERPASS=$1
+
 USER=oslander
 
 ZFS=yes
@@ -13,6 +15,8 @@ COMMUNITYREPO=yes
 ANSIBLE=yes
 
 PASSTHROUGH=yes
+
+DEBIAN_FRONTEND=noninteractive
 
 if [[ -n "$COMMUNITYREPO" ]]
 then 
@@ -43,7 +47,7 @@ then
 
     cd /root/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
 
-    apt install -y /root/sanoid/sanoid_*_all.deb
+    apt install -y /root/sanoid_*_all.deb
 
     zfs create -o mountpoint=/home/$USER rpool/data/users/$USER
     
@@ -94,6 +98,7 @@ cp $CONFIGDIR/etc/ssh/sshd_config /etc/ssh/sshd_config
 
 if [[ -n "$ZFS" ]]
 then
+    mkdir /etc/sanoid
     cp $CONFIGDIR/etc/sanoid/proxmox/sanoid.conf /etc/sanoid/sanoid.conf
 fi
 
@@ -101,6 +106,7 @@ cp $CONFIGDIR/home/.gitconfig /home/$USER/.gitconfig
 
 chown -R $USER:users /home/$USER
 
+echo "$USER:$USERPASS" | chpasswd
 
 if [ -n "$PASSTHROUGH" ]
 then 
