@@ -1,23 +1,31 @@
 #!/bin/bash
 
-USERPASS=$1
+USER=$1
 
-USER=oslander
+USERPASS=$2
 
 ZFS=yes
+# Setting this variable will create separate ZFS datasets for user directories, backups, VM image files, and templates saved on the local ZFS storage. It also installs Sanoid to manage ZFS snapshots systemwide. 
 
 CONFIGREPO="https://github.com/samuelmcpherson/config-files.git"
+# This variable is used for bringing in configuration files present in a separate repository, this will be cloned in the configured user's home directory
 
 CONFIGDIR="/home/$USER/$(echo $CONFIGREPO | cut -d '/' -f5 | sed -r 's/.{4}$//')"
+# Parsed from $CONFIGREPO, used for file operations after the repository is cloned
 
 COMMUNITYREPO=yes
+# Setting this variable will remove the default Proxmox enterprise repository and add the Proxmox community repository 
 
 ANSIBLE=yes
+# Setting this variable will create a separate ansible user account with passwordless sudo privleges and add a pre-existing public key from the configuration files repository to their authorized keys
 
 PASSTHROUGH=yes
+# Setting this variable will enable the kernel modules and boot options required for PCI passthrough on Intel based systems; to use this option, one of the following two variables will need to be set in order to correctly modify the kernel commandline of the correct bootloader
 
-DEBIAN_FRONTEND=noninteractive
+EFI=yes
 
+BIOS=
+ 
 if [[ -n "$COMMUNITYREPO" ]]
 then 
     echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-community.list
@@ -25,13 +33,13 @@ then
     rm /etc/apt/sources.list.d/pve-enterprise.list
 fi
 
-apt update && apt -y upgrade
+apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade
 
-apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
+DEBIAN_FRONTEND=noninteractive apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
 
 if [[ -n "$ZFS" ]]
 then
-    apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
+    DEBIAN_FRONTEND=noninteractive apt install -y debhelper libcapture-tiny-perl libconfig-inifiles-perl pv lzop mbuffer
 
     rm -r /var/lib/vz/dump
     rm -r /var/lib/vz/images
@@ -108,36 +116,25 @@ chown -R $USER:users /home/$USER
 
 echo "$USER:$USERPASS" | chpasswd
 
-if [ -n "$PASSTHROUGH" ]
+if [[ -n "$PASSTHROUGH" ]]
 then 
-
     echo 'vfio' >> /etc/modules
     echo 'vfio_iommu_type1' >> /etc/modules
     echo 'vfio_pci' >> /etc/modules
     echo 'vfio_virqfd' >> /etc/modules
-
-    sed -i 's/root=.*/& intel_iommu=on iommu=pt/g' /etc/kernel/cmdline
-
-    pve-efiboot-tool refresh
-
-    echo 'test with'
-
-    echo
-
-    echo 'dmesg | grep -e DMAR -e IOMMU'
-
-    dmesg | grep -e DMAR -e IOMMU
-
-    echo 
-
-    echo 'dmesg | grep remapping'
-
-    dmesg | grep remapping
-
-    echo
-
-    echo 'find /sys/kernel/iommu_groups/ -type l'
-
-    find /sys/kernel/iommu_groups/ -type l
+    
+    if [[ -n "$BIOS" ]]
+    then
+        sed -i 's/root=.*/& intel_iommu=on iommu=pt/g' /etc/kernel/cmdline
+        
+        proxmox-boot-tool refresh
+    elif [[ -n "$EFI" ]]
+    then
+        sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/& intel_iommu=on iommu=pt/g' /etc/default/grub
+        
+        proxmox-boot-tool refresh
+    else
+        echo "Unable to set kernel parameters to enable PCI passthrough, you need to specify if you are booting in EFI or BIOS mode"
+    fi
 
 fi
