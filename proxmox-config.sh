@@ -22,9 +22,9 @@ ANSIBLE=yes
 PASSTHROUGH=yes
 # Setting this variable will enable the kernel modules and boot options required for PCI passthrough on Intel based systems; to use this option, one of the following two variables will need to be set in order to correctly modify the kernel commandline of the correct bootloader
 
-EFI=yes
+EFI=
 
-BIOS=
+BIOS=yes
  
 if [[ -n "$COMMUNITYREPO" ]]
 then 
@@ -123,12 +123,12 @@ then
     echo 'vfio_pci' >> /etc/modules
     echo 'vfio_virqfd' >> /etc/modules
     
-    if [[ -n "$BIOS" ]]
+    if [[ -n "$EFI" ]]
     then
         sed -i 's/root=.*/& intel_iommu=on iommu=pt/g' /etc/kernel/cmdline
         
         proxmox-boot-tool refresh
-    elif [[ -n "$EFI" ]]
+    elif [[ -n "$BIOS" ]]
     then
         sed -i 's/GRUB_CMDLINE_LINUX_DEFAULT="quiet/& intel_iommu=on iommu=pt/g' /etc/default/grub
         
