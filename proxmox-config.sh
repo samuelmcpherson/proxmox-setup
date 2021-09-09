@@ -23,17 +23,22 @@ PASSTHROUGH=yes
 # Setting this variable will enable the kernel modules and boot options required for PCI passthrough on Intel based systems; to use this option, one of the following two variables will need to be set in order to correctly modify the kernel commandline of the correct bootloader
 
 EFI=
+# This variable determines what bootloader configuration is modified when setting up PCI passthrough, EFI installations use systemdboot
 
 BIOS=yes
+# This variable determines what bootloader configuration is modified when setting up PCI passthrough, BIOS installations use grub
  
 if [[ -n "$COMMUNITYREPO" ]]
 then 
     echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-community.list
+    # Setup the community repository
 
     rm /etc/apt/sources.list.d/pve-enterprise.list
+    # Removes the default enterprise repository
 fi
 
 apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade
+# Fully upgrades the new system and makes sure that interactive prompts do not interrupt this process
 
 DEBIAN_FRONTEND=noninteractive apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
 
