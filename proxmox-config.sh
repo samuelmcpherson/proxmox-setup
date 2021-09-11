@@ -27,7 +27,10 @@ EFI=
 
 BIOS=yes
 # This variable determines what bootloader configuration is modified when setting up PCI passthrough, BIOS installations use grub
- 
+
+export DEBIAN_FRONTEND=noninteractive
+# make sure that interactive prompts do not interrupt any system upgrades or package installations
+
 if [[ -n "$COMMUNITYREPO" ]]
 then 
     echo "deb http://download.proxmox.com/debian/pve bullseye pve-no-subscription" > /etc/apt/sources.list.d/pve-community.list
@@ -37,10 +40,10 @@ then
     # Removes the default enterprise repository
 fi
 
-apt update && DEBIAN_FRONTEND=noninteractive apt -y upgrade
-# Fully upgrades the new system and makes sure that interactive prompts do not interrupt this process
+apt update && apt -y upgrade
+# Fully upgrades the system 
 
-DEBIAN_FRONTEND=noninteractive apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
+apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
 
 if [[ -n "$ZFS" ]]
 then
@@ -51,7 +54,7 @@ then
     rm -r /var/lib/vz/template
 
     zfs create -o canmount=off -o xattr=sa -o compression=lz4 -o recordsize=16k rpool/data/VM_image_data
-    zfs create -o mountpoint=/var/lib/vz/dump rpool/data/VM_image_data/dump
+    zfs create -o mountpoint=/var/lib/vz/dumln -s ~/.local/share/kwin/scripts/krohnkite/metadata.desktop ~/.local/share/kservices5/krohnkite.desktopp rpool/data/VM_image_data/dump
     zfs create -o mountpoint=/var/lib/vz/images rpool/data/VM_image_data/images
     zfs create -o mountpoint=/var/lib/vz/template rpool/data/VM_image_data/template
     zfs create -o canmount=off rpool/data/users
