@@ -6,14 +6,14 @@ ADDRESS=$1
 PASSWORD=$2
 # Root password of the device to connect to
 
-USERPASS=$3
+USER=$3
+# The main user account to create on the configured system
+
+USERPASS=$4
 # Password to set for the main user account created by the configuration script
 
-PUBLIC_KEY=$4
+PUBLIC_KEY=$5
 # Optional: This variable is used to specify the public key to add to authorized_keys file for the user account created 
-
-USER=oslander
-# The main user account to create on the configured system
 
 # ssh auto-enter-password.sh is a script that uses the expect package to automatically enter a password for ssh authentication
 ./ssh-auto-enter-password.sh "$PASSWORD" scp -o StrictHostKeyChecking=no ./proxmox-config.sh root@"$ADDRESS":/root/proxmox-config.sh
