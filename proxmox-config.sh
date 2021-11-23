@@ -49,7 +49,7 @@ fi
 apt update && apt -y upgrade
 # Fully upgrades the system 
 
-apt install -y sudo rsync dosfstools zsh curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim neovim tcpdump smartmontools
+apt install -y sudo rsync dosfstools zsh zsh-antigen curl patch wget git irssi lynx elinks htop lm-sensors net-tools screen tmux sysstat iotop ripgrep nmap iftop vim tcpdump smartmontools sanoid
 # Install a set of base packages 
 
 if [[ -n "$ZFS" ]]
@@ -74,13 +74,13 @@ then
     zfs create -o canmount=off rpool/data/users
     # Create separate dataset for user accounts
     
-    cd /tmp && git clone https://github.com/jimsalterjrs/sanoid.git
+    #cd /tmp && git clone https://github.com/jimsalterjrs/sanoid.git
     # Pull the github repo to install sanoid
 
-    cd /tmp/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
+    #cd /tmp/sanoid && git checkout $(git tag | grep '^v' | tail -n 1) && ln -s packages/debian . && dpkg-buildpackage -uc -us
     # Checkout the latest stable version of sanoid and build the debian package
 
-    apt install -y /tmp/sanoid_*_all.deb
+    #apt install -y /tmp/sanoid_*_all.deb
     # Install the built sanoid package
 
     systemctl enable sanoid.timer
@@ -116,15 +116,18 @@ fi
 mkdir -p /home/$USER/.ssh
 
 cd /home/$USER && git clone $CONFIGREPO
+
+cp $CONFIGDIR/home/.ssh/config /home/$USER/.ssh/config
+
+cp $CONFIGDIR/home/.vimrc /home/$USER/.vimrc
+
 # Pull git repository with configuration files to copy to new install
 
 if [[ "$USERSHELL" = "/bin/zsh" || "$USERSHELL" = "/usr/bin/zsh" ]]
 then
     cp $CONFIGDIR/home/.zshrc /home/$USER/.zshrc
     
-    cp $CONFIGDIR/home/.zshrc.local /home/$USER/.zshrc.local
-
-    cp $CONFIGDIR/home/grml-zsh-refcard.pdf /home/$USER/grml-zsh-refcard.pdf
+    cp /usr/share/zsh-antigen/antigen.zsh /home/$USER/antigen.zsh
 fi
 # Copy grml zsh configuration to main user home directory is zsh is used as the shell
 
