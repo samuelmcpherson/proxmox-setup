@@ -121,6 +121,9 @@ cp $CONFIGDIR/home/.ssh/config /home/$USER/.ssh/config
 
 cp $CONFIGDIR/home/.vimrc /home/$USER/.vimrc
 
+cp $CONFIGDIR/home/.gitconfig /home/$USER/.gitconfig
+# Copy a configured git configuration file to the main user account
+
 # Pull git repository with configuration files to copy to new install
 
 if [[ "$USERSHELL" = "/bin/zsh" || "$USERSHELL" = "/usr/bin/zsh" ]]
@@ -129,7 +132,9 @@ then
     
     cp /usr/share/zsh-antigen/antigen.zsh /home/$USER/antigen.zsh
 fi
-# Copy grml zsh configuration to main user home directory is zsh is used as the shell
+# Copy antigen zsh configuration to main user home directory is zsh is used as the shell
+
+sed -i 's/PATH="\/usr\/local\/bin:\/usr\/bin:\/bin:\/usr\/games"/PATH="\/usr\/local\/sbin:\/usr\/local\/bin:\/usr\/sbin:\/usr\/bin:\/sbin:\/bin"/g' $TEMPMOUNT/etc/zsh/zshenv
 
 if [[ -n "$ANSIBLE" ]]
 then
@@ -157,9 +162,6 @@ then
     cp $CONFIGDIR/etc/sanoid/proxmox/sanoid.conf /etc/sanoid/sanoid.conf
     # Copy sanoid configuration file into place on the new system
 fi
-
-cp $CONFIGDIR/home/.gitconfig /home/$USER/.gitconfig
-# Copy a configured git configuration file to the main user account
 
 chown -R $USER:users /home/$USER
 
